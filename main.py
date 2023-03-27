@@ -11,6 +11,10 @@ def get_contour_area(contour: cv2.Mat):
     return cv2.contourArea(contour)
 
 def process_contours(contours: tuple[cv2.Mat], max_objects=4) -> tuple[cv2.Mat]:
+    # TODO try to merge objects that are close together.
+    # TODO try to merge objects that are close together before checking
+    # if the num_objects > max_objects. Because the number of objects may be equal to max_objects
+    # but is still an invalid.
     num_objects = len(contours)
     assert num_objects >= max_objects, f"Only [{num_objects}] objects"
     if num_objects > max_objects:
@@ -185,6 +189,7 @@ def main():
 
     reference_points_capture_name = "References Points Capture"
     cv2.namedWindow(reference_points_capture_name, cv2.WINDOW_NORMAL)
+    cv2.resizeWindow(reference_points_capture_name, utility_window_width*2, utility_window_height*2)
     
     # calibration settings
     needs_calibrating = True
@@ -202,7 +207,12 @@ def main():
         hsv_image = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
         # threshold and remove noise for the paper
         thresholded_paper = cv2.inRange(hsv_image, (43, 38, 141), (99, 255, 255))
-        img_erosion_paper = cv2.erode(thresholded_paper, np.ones((3, 3), np.uint8), iterations=1)
+        img_erosion_paper = thresholded_paper
+        #img_erosion_paper = cv2.erode(thresholded_paper, np.ones((3, 3), np.uint8), iterations=1)
+        #img_erosion_paper = cv2.dilate(img_erosion_paper, np.ones((3, 3), np.uint8), iterations=1)
+        # TODO need a calibrate button
+        # TODO try dilating after eroding to rejoin any potential contours that may have been seperated
+        # due to erosion.
         # threshold and remove noise for the pen
         thresholded_pen = cv2.inRange(hsv_image, (158, 83, 216), (180, 255, 255))
         img_erosion_pen = cv2.erode(thresholded_pen, np.ones((3, 3), np.uint8), iterations=1)
@@ -219,6 +229,8 @@ def main():
         # remove any noisy contours and take the biggest 4 contours
         if needs_calibrating and len(paper_contours) >= 4:
         #if len(paper_contours) >= 4:
+        # TODO process contours should consider if contours are clustered close to together.
+        # If contours are clustered closely together they should prob be merged.
             paper_contours = process_contours(paper_contours)
             center_points = get_center_points(paper_contours)
             if len(center_points) == 4:
