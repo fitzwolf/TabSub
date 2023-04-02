@@ -7,23 +7,80 @@ import time
 Points = np.ndarray[np.ndarray[int]]
 Matrix = np.ndarray[np.ndarray[np.generic]]
 
+def get_contours(img: cv2.Mat) -> tuple[cv2.Mat]:
+    contours, _ = cv2.findContours(img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    return contours
+
 def get_contour_area(contour: cv2.Mat):
     return cv2.contourArea(contour)
 
-def process_contours(contours: tuple[cv2.Mat], max_objects=4) -> tuple[cv2.Mat]:
-    # TODO try to merge objects that are close together.
-    # TODO try to merge objects that are close together before checking
-    # if the num_objects > max_objects. Because the number of objects may be equal to max_objects
-    # but is still an invalid.
+# find the distance between two contours
+def get_contour_distance(contour1: cv2.Mat, contour2: cv2.Mat) -> float:
+    M1 = cv2.moments(contour1)
+    M2 = cv2.moments(contour2)
+    cx1 = int(M1['m10']/(M1['m00'] + 0.001))
+    cy1 = int(M1['m01']/(M1['m00'] + 0.001))
+    cx2 = int(M2['m10']/(M2['m00'] + 0.001))
+    cy2 = int(M2['m01']/(M2['m00'] + 0.001))
+    return np.sqrt((cx1 - cx2)**2 + (cy1 - cy2)**2)
+
+def get_contour_distance_matrix(contours: tuple[cv2.Mat]) -> Matrix:
+    num_contours = len(contours)
+    matrix = np.zeros((num_contours, num_contours))
+    for i in range(num_contours):
+        for j in range(num_contours):
+            matrix[i, j] = get_contour_distance(contours[i], contours[j])
+            if i == j:
+                matrix[i, j] = np.inf
+    return matrix
+
+# merge only the closest contours using the distance matrix
+def merge_contours(contours: tuple[cv2.Mat], max_merge_distance=10) -> tuple[cv2.Mat]:
+    distance_matrix = get_contour_distance_matrix(contours)
+    num_contours = len(contours)
+    final_contours = set()
+    merged_contours = set()
+    contours = list(contours)
+    for i in range(num_contours):
+        if i in merged_contours:
+            continue
+        final_contours.add(i)
+        while True:
+            j = np.argmin(distance_matrix[i])
+            if distance_matrix[i, j] < max_merge_distance: # in pixels
+                merged_contours.add(i)
+                merged_contours.add(j)
+                contours[i] = np.concatenate([contours[i], contours[j]], axis=0)
+            if distance_matrix[i, j] == np.inf:
+                break
+            distance_matrix[i, j] = np.inf
+    return tuple(cv2.convexHull(contours[i]) for i in final_contours)
+
+def process_contours(contours: tuple[cv2.Mat], max_objects=4, max_merge_distance=10) -> tuple[cv2.Mat]:
     num_objects = len(contours)
-    assert num_objects >= max_objects, f"Only [{num_objects}] objects"
+    assert num_objects >= max_objects, f"Need at least [{max_objects}] objects but only have [{num_objects}] objects"
     if num_objects > max_objects:
+        # try to merge the closest contours
+        contours = merge_contours(contours, max_merge_distance)
+        num_objects = len(contours)
+
         cnts = [(i, get_contour_area(c)) for i, c in enumerate(contours)]
         # sort contours by area
         cnts.sort(reverse=True, key=lambda entry : entry[1])
         # take the first max_contours contours
-        return tuple(contours[i] for i, _ in cnts[0 : max_objects])
+        # no guarantee that after merging the contours, we will have the max_contours
+        return tuple(contours[i] for i, _ in cnts[0 : min(len(contours), max_objects)])
     return contours
+
+# score the contours based on their distance from each other and their area
+def score_contours(contours: tuple[cv2.Mat], lerp = 0.5) -> float:
+    num_contours = len(contours)
+    distance_matrix = get_contour_distance_matrix(contours)
+    scores = np.zeros(num_contours)
+    for i in range(num_contours):
+        avg_distance = np.mean([n for n in distance_matrix[i] if n != np.inf])
+        scores[i] = lerp * avg_distance + (1 - lerp) * get_contour_area(contours[i])
+    return np.sum(scores)
 
 def get_center_points(contours: tuple[cv2.Mat]) -> Points:
     points = np.zeros((len(contours), 2), dtype="int")
@@ -32,8 +89,8 @@ def get_center_points(contours: tuple[cv2.Mat]) -> Points:
             points[i] = [c[0, 0, 0], c[0, 0, 1]]
         else:
             M = cv2.moments(c)
-            cx = int(M['m10']/(M['m00'] + 0.001))
-            cy = int(M['m01']/(M['m00'] + 0.001))
+            cx = int(M['m10']/(M['m00'] + 0.0001))
+            cy = int(M['m01']/(M['m00'] + 0.0001))
             points[i] = [cx, cy]
     return points
 
@@ -167,8 +224,6 @@ def testing():
     # #cv2.imshow("Name", threshold)
     cv2.waitKey(0)
 
-# TODO flip orientation of the feature points. TL should be be Bottom. Perspective shouldn't
-# be from the camera.
 def main():
     window_width, window_height = 1024, 720
     utility_window_width, utility_window_height = 512, 256
@@ -196,6 +251,7 @@ def main():
     last_calibration = time.time()
     time_between_calibrations = 1 # seconds
     ordered_center_points = None
+    center_points_score = -np.inf
     while True:
         ret, frame = cap.read()
         if frame is None:
@@ -225,21 +281,21 @@ def main():
             last_calibration = time.time()
             needs_calibrating = True
 
-        paper_contours, _ = cv2.findContours(img_erosion_paper, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        paper_contours = get_contours(img_erosion_paper)
         # remove any noisy contours and take the biggest 4 contours
         if needs_calibrating and len(paper_contours) >= 4:
-        #if len(paper_contours) >= 4:
-        # TODO process contours should consider if contours are clustered close to together.
-        # If contours are clustered closely together they should prob be merged.
             paper_contours = process_contours(paper_contours)
-            center_points = get_center_points(paper_contours)
-            if len(center_points) == 4:
+            # TODO fix score contours
+            contour_score = score_contours(paper_contours, lerp=0.3)
+            if len(paper_contours) == 4:# and contour_score > center_points_score:
+                center_points_score = contour_score
+                center_points = get_center_points(paper_contours)
                 ordered_center_points = order_center_points(center_points)
                 needs_calibrating = False
                 cv2.imshow(reference_points_capture_name, draw_reference_points(frame, ordered_center_points, False))
                 print("Completed Calibration")
 
-        pen_contours, _ = cv2.findContours(img_erosion_pen, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        pen_contours = get_contours(img_erosion_pen)
         if len(pen_contours) >= 1 and ordered_center_points is not None:
             pen_contours = process_contours(pen_contours, max_objects=1)
             pen_extreme_points = get_extreme_points_from_contour(pen_contours[0])
