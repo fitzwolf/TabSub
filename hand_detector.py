@@ -1,6 +1,9 @@
 import cv2
 import numpy as np
 
+# Currently this works simply by looking for a skin tone in frame and using that for detection
+# this needs to be updated for this to work smoother and it is very easy to fool / detect false
+
 def preprocess(frame):
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     blur = cv2.GaussianBlur(gray, (5, 5), 0)
