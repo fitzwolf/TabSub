@@ -53,9 +53,21 @@ def process_points(arr):
         top_left = temp2
         bottom_right = temp1
 
-def crop_image(tl,br, i):
+def crop_image(tl,br, i, pad):
     global img_copy
-    crop_img = img_copy[tl[1]:br[1], tl[0]:br[0]].copy()
+    # (h,w) = img_copy.shape
+    # print("h:",h)
+    # print("w:",w)
+    if(tl[1]-pad <= 0):
+        pad_y = 0
+    else:
+        pad_y = tl[1]-pad
+    
+    # if(br[0]+pad >= w):
+    #     pad_x = w
+    # else:
+    pad_x = br[0]+pad
+    crop_img = img_copy[pad_y:br[1]+5, tl[0]:pad_x].copy()
     cv2.imwrite(f'./cropped_images/image{i}.png', crop_img)
     i+=1
 
@@ -68,5 +80,5 @@ if __name__=="__main__":
     cv2.waitKey(0)
     cv2.destroyAllWindows()
     process_points(arr)
-    crop_image(top_left,bottom_right,i)
+    crop_image(top_left,bottom_right,i,20)
 
