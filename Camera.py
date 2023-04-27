@@ -64,28 +64,17 @@ def draw_hand_landmarks(image, hand_landmarker_result):
 	return image
 
 
-# define a video capture object
-# 0 is the device #, it can be confusing but if you have multiple potential sources
-# you might have to mess with this value.
 vid = cv2.VideoCapture(0)
-
 start = False
 def _start(val):
 	global start
 	start = bool(val)
 
-clear = False
-def _clear(val):
-	global clear
-	clear = bool(val)
-
 controls_window_name = 'Control_Panel'
 start_tracker_name = "Start"
-clear_tracker_name = "Clear"
 cv2.namedWindow(controls_window_name, cv2.WINDOW_NORMAL)
 cv2.resizeWindow(controls_window_name, 400, 300)
 cv2.createTrackbar(start_tracker_name, controls_window_name, 0, 1, _start)
-cv2.createTrackbar(clear_tracker_name, controls_window_name, 0, 1, _clear)
 
 with mp_hands.Hands(model_complexity=1, min_detection_confidence=0.6, min_tracking_confidence=0.6) as hands:
 	canvas = np.ones((480, 640, 3), dtype="uint8") * 255
@@ -99,30 +88,24 @@ with mp_hands.Hands(model_complexity=1, min_detection_confidence=0.6, min_tracki
 			continue
 
 		frame = cv2.flip(frame, 1)
-		#cv2.imshow('frame', frame)
 		image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 		results = hands.process(image)
 		cv2.imshow('hand', cv2.cvtColor(draw_hand_landmarks(image.copy(), results), cv2.COLOR_RGB2BGR))
-		#cv2.imshow('index finger', cv2.cvtColor(draw_index_finger(image.copy(), results), cv2.COLOR_RGB2BGR))
-		#cv2.imshow('index finger', cv2.cvtColor(draw_index_finger(canvas, results), cv2.COLOR_RGB2BGR))
 
 		if start:
 			if not prev_pos:
 				prev_pos = get_index_finger_position(image.shape[:2], results)
-				#draw_circle(canvas, prev_pos)
 			else:
 				curr_pos = get_index_finger_position(image.shape[:2], results)	
 				dist = euclidean_distance(prev_pos, curr_pos)
-				#print(image.shape, prev_pos, curr_pos, dist)
 				if dist < 150:
 					draw_line(canvas, prev_pos, curr_pos)
 					prev_pos = curr_pos
 				else:
 					prev_pos = None
 					curr_pos = None
-		if clear:
+		else:
 			canvas = np.ones((480, 640, 3), dtype="uint8") * 255
-			#clear = False
 
 		cv2.imshow('Canvas', canvas)
 		
