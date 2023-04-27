@@ -1,7 +1,7 @@
 import numpy as np
 from emnist import extract_training_samples, extract_test_samples
 from tensorflow import keras
-from tensorflow.keras import layers
+from keras import layers
 
 # Load the dataset
 x_train, y_train = extract_training_samples('byclass')
