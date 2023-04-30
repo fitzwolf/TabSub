@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-
+from segment_compare import *
 
 # function to display the coordinates of
 # of the points clicked on the image 
@@ -66,13 +66,22 @@ def crop_image(tl,br, pad):
         pad_y = tl[1]-pad
     if(br[0]+7 >= w):
         pad_x = w
-        print("im here")
     else:
         pad_x = br[0]+7
     
-    crop_img = img_copy[pad_y:br[1]+7, tl[0]:pad_x].copy()
+    crop_img = img_copy[pad_y:br[1]+20, tl[0]:pad_x].copy()
     cv2.imwrite(f'./cropped_images/image{i}.png', crop_img)
     i+=1
+
+def background(tl,br,pad):
+    global img_copy
+    width = abs(br[0] - tl[0])+7
+    height = abs(tl[1] - br[1])+20+pad
+    crop_img = img_copy[0:height, 0:width].copy()
+    cv2.imwrite('./cropped_images/backgound.png', crop_img)
+
+
+
 
 #update the coordinate to get the next letter
 def update_coor(tl,br):
@@ -90,7 +99,7 @@ def update_coor(tl,br):
 
 #main
 if __name__=="__main__":
-    img = cv2.imread('world.jpeg', 1)
+    img = cv2.imread('./drawn_output/cone.jpeg', 1)
     img_copy = img.copy()
     print("Please click on the top-left corner and the bottom-right corner of your first letter.")
     cv2.imshow('image', img)
@@ -100,15 +109,16 @@ if __name__=="__main__":
     process_points(arr)
     loop=6
     i=0
+    result = ""
+    background(top_left,bottom_right,46) 
     while(True):
         #crop the image and output to cropped_images
-        crop_image(top_left,bottom_right,35) 
-        
-        # TODO:
-        # Change if statement to be: 
-        # if image (i-1) and block = background:
-            #break
-        if loop==0:
+        crop_image(top_left,bottom_right,46) 
+        background_block = cv2.imread("./cropped_images/backgound.png")
+        block_letters = cv2.imread(f'./cropped_images/image{i-1}.png')
+        result =  compare_image_blocks(background_block,block_letters)
+       
+        if (result == "similar or the same"):
             break
         else:
             top_left,bottom_right = update_coor(top_left,bottom_right)
@@ -116,8 +126,9 @@ if __name__=="__main__":
             if(top_left == -1):
                 print("Nothing left to read")
                 break
-            loop-=1
 
-        
-        
+# compare_image_blocks(block1, block2)
+# print("The image blocks are", result)
+# return "similar or the same"
+# return "dissimilar"
 
