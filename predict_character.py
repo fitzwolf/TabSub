@@ -37,11 +37,11 @@ model = keras.models.load_model(os.path.join(modeldir, modelfn))
 # Load an input image
 # Currently model works on B.png, e.jpg and fails on b.png and e.png
 imgdir = "cropped_images"
-imglist = ["image0.png","image1.png","image2.png","image3.png"] 
+imglist = ["image0.png","image1.png","image2.png","image3.png"]
 
 # Predict the character and its confidence
 for image in imglist:
     img = os.path.join(imgdir, image)
     predicted_character, confidence = predict_character(img, model)
-    print(f"Predicted character: {predicted_character}")
+    print(f"Predicted character: {predicted_character}, Actual: {image}")
     print(f"Confidence: {confidence:.2f}")

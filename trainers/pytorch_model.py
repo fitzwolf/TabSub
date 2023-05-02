@@ -106,9 +106,8 @@ def preprocess_and_predict(images, model):
 
 
 # Load images
-image_paths = ["cropped_images/image0.png", "cropped_images/image1.png", 
-               "cropped_images/image2.png", "cropped_images/image3.png", 
-               "cropped_images/image4.png"]
+image_paths = ["cropped_images/imageA.png", "cropped_images/image0.png", 
+               "cropped_images/imageB.png", "cropped_images/imageC.png"]
 images = [cv2.imread(path, cv2.IMREAD_GRAYSCALE) for path in image_paths]
 
 # Predict characters
