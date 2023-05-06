@@ -46,3 +46,15 @@ Top 3 Confidences: [0.32302594 0.25186086 0.18663743]
 1/1 [==============================] - 0s 21ms/step  
 Top 3 Predicted characters: ['j', 'i', '1'], Actual: image3.png  
 Top 3 Confidences: [0.4460022  0.40011805 0.03216499]  
+
+
+## Additional python scripts
+
+hand_detector.py: this is no longer used was just a starting point for some simple detection.
+
+segment_compare.py: this code contains the mean square error determination and is used in process_picture.py
+
+trainers/* : these python scripts generate various models for use in the prediction phase.
+
+models_classifier/*: these are trained models that can be used inside of predict_character.py
+
